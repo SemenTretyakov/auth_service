@@ -82,7 +82,7 @@ func (s *server) Delete(ctx context.Context, req *desc.DeleteReq) (*empty.Empty,
 func main() {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("failed to listen server: %v", err)
 	}
 
 	s := grpc.NewServer()
