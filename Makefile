@@ -29,3 +29,14 @@ generate-user-api:
 		--go_out=$(OUTPUT_DIR) --go_opt=paths=source_relative \
 		--go-grpc_out=$(OUTPUT_DIR) --go-grpc_opt=paths=source_relative \
 		$(PROTO_DIR)/user.proto
+
+build:
+	GOOS=linux GOARCH=amd64 go build -o service_linux ./cmd/grpc_server/main.go
+
+copy-to-server:
+	scp service_linux root@87.228.103.116:
+
+docker-build-and-push:
+	docker buildx build  --no-cache --platform linux/amd64 -t cr.selcloud.ru/cerys/test-server:v0.0.1 .
+	docker login -u token -p CRgAAAAAdQUD7n1KenY0kRQXAWPmmaddytMko6WT cr.selcloud.ru/cerys
+	docker push cr.selcloud.ru/cerys/test-server:v0.0.1
