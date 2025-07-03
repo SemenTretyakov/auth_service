@@ -37,7 +37,10 @@ jobs:
 
     steps:
       - name: Debug SSH Key
-      run: echo "${{ secrets.SSHKEY }}" | head -n 2
+        run: |
+          echo "GITHUB_SHA: $GITHUB_SHA"
+          echo "SSHKEY starts with:"
+          echo "${{ secrets.SSHKEY }}" | head -n 2
 
       - name: Deploy to Selectel Cloud via SSH action
         uses: appleboy/ssh-action@v1.0.0
