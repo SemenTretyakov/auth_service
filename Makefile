@@ -31,12 +31,12 @@ generate-user-api:
 		$(PROTO_DIR)/user.proto
 
 build:
-	GOOS=linux GOARCH=amd64 go build -o service_linux ./cmd/grpc_server/main.go
+	GOOS=linux GOARCH=amd64 go build -o auth_service ./cmd/app/main.go
 
 copy-to-server:
-	scp service_linux root@87.228.103.116:
+	scp auth_service root@87.228.103.116:
 
 docker-build-and-push:
-	docker buildx build  --no-cache --platform linux/amd64 -t cr.selcloud.ru/cerys/test-server:v0.0.1 .
+	docker buildx build  --no-cache --platform linux/amd64 -t cr.selcloud.ru/cerys/auth-server:v0.0.1 .
 	docker login -u token -p CRgAAAAAdQUD7n1KenY0kRQXAWPmmaddytMko6WT cr.selcloud.ru/cerys
-	docker push cr.selcloud.ru/cerys/test-server:v0.0.1
+	docker push cr.selcloud.ru/cerys/auth-server:v0.0.1
