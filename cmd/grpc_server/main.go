@@ -52,7 +52,7 @@ func (s *server) Get(ctx context.Context, req *desc.GetReq) (*desc.GetRes, error
 	return &desc.GetRes{
 		User: &desc.User{
 			Id:        req.GetId(),
-			Name:      gofakeit.Username(),
+			Name:      "FAKE NAME",
 			Email:     gofakeit.Email(),
 			Role:      desc.Role_USER,
 			CreatedAt: timestamppb.New(gofakeit.Date()),
