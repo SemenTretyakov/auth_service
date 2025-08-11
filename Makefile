@@ -1,4 +1,8 @@
 LOCAL_BIN:=$(CURDIR)/bin
+
+LOCAL_MIGRATION_DIR=$(MIGRATION_DIR)
+LOCAL_MIGRATION_DSN="host=localhost port=$(PG_PORT) dbname=$(PG_DATABASE_NAME) user=$(PG_USER) password=$(PG_PASSWORD)"
+
 PROTO_DIR := api/user_v1
 OUTPUT_DIR := pkg/user_v1
 
@@ -15,6 +19,7 @@ get-deps:
 	go get -u google.golang.org/grpc
 	go get -u google.golang.org/protobuf/cmd/protoc-gen-go
 	go get -u google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	go get github.com/joho/godotenv
 
 generate:
 	make generate-user-api
@@ -40,3 +45,18 @@ docker-build-and-push:
 	docker buildx build  --no-cache --platform linux/amd64 -t cr.selcloud.ru/cerys/auth-server:v0.0.1 .
 	docker login -u token -p CRgAAAAAdQUD7n1KenY0kRQXAWPmmaddytMko6WT cr.selcloud.ru/cerys
 	docker push cr.selcloud.ru/cerys/auth-server:v0.0.1
+
+local-migration-status:
+	goose -dir ${LOCAL_MIGRATION_DIR} postgres ${LOCAL_MIGRATION_DSN} status -v
+
+local-migration-up:
+	goose -dir ${LOCAL_MIGRATION_DIR} postgres ${LOCAL_MIGRATION_DSN} up -v
+
+local-migration-down:
+	goose -dir ${LOCAL_MIGRATION_DIR} postgres ${LOCAL_MIGRATION_DSN} down -v
+
+run-local:
+	go run ./cmd/app/main.go -config-path=local.env
+
+run-prod:
+	go run ./cmd/app/main.go -config-path=prod.env

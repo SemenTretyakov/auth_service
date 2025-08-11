@@ -66,8 +66,3 @@ message UpdateReq {
 message DeleteReq {
   int64 id = 1;
 }
-
-
-
-
-
