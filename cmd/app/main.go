@@ -2,23 +2,20 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"log"
 	"net"
-	"time"
 
-	sq "github.com/Masterminds/squirrel"
 	"github.com/SemenTretyakov/auth_service/internal/config"
+	"github.com/SemenTretyakov/auth_service/internal/repository"
+	usersRepo "github.com/SemenTretyakov/auth_service/internal/repository/users"
 	desc "github.com/SemenTretyakov/auth_service/pkg/user_v1"
-	"github.com/brianvoe/gofakeit"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var configPath string
@@ -28,27 +25,15 @@ func init() {
 }
 
 type server struct {
+	usersRepository repository.UsersRepository
 	desc.UnimplementedUserV1Server
-	pool *pgxpool.Pool
 }
 
 func (s *server) Create(ctx context.Context, req *desc.CreateReq) (*desc.CreateRes, error) {
-	pass := gofakeit.Password(true, true, true, true, false, 5)
-	buildInsert := sq.Insert("users").
-		PlaceholderFormat(sq.Dollar).
-		Columns("fullname", "email", "password", "password_confirm", "role").
-		Values(gofakeit.Name(), gofakeit.Email(), pass, pass, 1).
-		Suffix("RETURNING id")
-
-	query, args, err := buildInsert.ToSql()
+	userID, err := s.usersRepository.Create(ctx, req.GetInfo())
 	if err != nil {
-		log.Fatalf("failed to build query: %v", err)
-	}
-
-	var userID int64
-	err = s.pool.QueryRow(ctx, query, args...).Scan(&userID)
-	if err != nil {
-		log.Fatalf("failed to insert user: %v", err)
+		log.Printf("Error from repo.Create: %v\n", err)
+		return nil, err
 	}
 
 	log.Printf("inserted user with ID: %d", userID)
@@ -59,58 +44,19 @@ func (s *server) Create(ctx context.Context, req *desc.CreateReq) (*desc.CreateR
 }
 
 func (s *server) Get(ctx context.Context, req *desc.GetReq) (*desc.GetRes, error) {
-	buildSelectOne := sq.Select(
-		"id",
-		"fullname",
-		"email",
-		"role",
-		"created_at",
-		"updated_at",
-	).
-		From("users").
-		PlaceholderFormat(sq.Dollar).
-		Where(sq.Eq{"id": req.GetId()}).
-		Limit(1)
-
-	query, args, err := buildSelectOne.ToSql()
+	user, err := s.usersRepository.Get(ctx, req.GetId())
 	if err != nil {
-		log.Fatalf("failed to build query: %v", err)
-	}
-
-	var (
-		id        int64
-		fullname  string
-		email     string
-		role      int32
-		createdAt time.Time
-		updatedAt sql.NullTime
-	)
-
-	err = s.pool.QueryRow(ctx, query, args...).Scan(
-		&id,
-		&fullname,
-		&email,
-		&role,
-		&createdAt,
-		&updatedAt,
-	)
-	if err != nil {
-		log.Printf("failed to select users: %v", err)
-	}
-
-	var updatedAtProto *timestamppb.Timestamp
-	if updatedAt.Valid {
-		updatedAtProto = timestamppb.New(updatedAt.Time)
+		return nil, err
 	}
 
 	return &desc.GetRes{
 		User: &desc.User{
-			Id:        id,
-			Name:      fullname,
-			Email:     email,
-			Role:      desc.Role(role),
-			CreatedAt: timestamppb.New(createdAt),
-			UpdatedAt: updatedAtProto,
+			Id:        user.Id,
+			Name:      user.Name,
+			Email:     user.Email,
+			Role:      user.Role,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
 		},
 	}, nil
 }
@@ -151,7 +97,7 @@ func main() {
 		log.Fatalf("failed to load pgConfig: %v", err)
 	}
 
-	lis, err := net.Listen("tcp", grpcConfig.Address())
+	lis, err := net.Listen("tcp4", grpcConfig.Address())
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -163,9 +109,11 @@ func main() {
 	}
 	defer pool.Close()
 
+	usersRepository := usersRepo.NewRepository(pool)
+
 	s := grpc.NewServer()
 	reflection.Register(s)
-	desc.RegisterUserV1Server(s, &server{pool: pool})
+	desc.RegisterUserV1Server(s, &server{usersRepository: usersRepository})
 
 	log.Printf("server listening at %v", lis.Addr())
 
