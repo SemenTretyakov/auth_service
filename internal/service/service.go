@@ -1,4 +1,4 @@
-package repository
+package service
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/SemenTretyakov/auth_service/internal/model"
 )
 
-type UsersRepository interface {
+type UsersService interface {
 	Create(ctx context.Context, info *model.UserFields) (int64, error)
 	Get(ctx context.Context, id int64) (*model.User, error)
 }

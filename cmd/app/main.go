@@ -7,8 +7,10 @@ import (
 	"net"
 
 	"github.com/SemenTretyakov/auth_service/internal/config"
-	"github.com/SemenTretyakov/auth_service/internal/repository"
+	defConverter "github.com/SemenTretyakov/auth_service/internal/converter"
 	usersRepo "github.com/SemenTretyakov/auth_service/internal/repository/users"
+	"github.com/SemenTretyakov/auth_service/internal/service"
+	userService "github.com/SemenTretyakov/auth_service/internal/service/users"
 	desc "github.com/SemenTretyakov/auth_service/pkg/user_v1"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -25,12 +27,12 @@ func init() {
 }
 
 type server struct {
-	usersRepository repository.UsersRepository
+	usersService service.UsersService
 	desc.UnimplementedUserV1Server
 }
 
 func (s *server) Create(ctx context.Context, req *desc.CreateReq) (*desc.CreateRes, error) {
-	userID, err := s.usersRepository.Create(ctx, req.GetInfo())
+	userID, err := s.usersService.Create(ctx, defConverter.UserFieldsFromProto(req.GetInfo()))
 	if err != nil {
 		log.Printf("Error from repo.Create: %v\n", err)
 		return nil, err
@@ -44,20 +46,13 @@ func (s *server) Create(ctx context.Context, req *desc.CreateReq) (*desc.CreateR
 }
 
 func (s *server) Get(ctx context.Context, req *desc.GetReq) (*desc.GetRes, error) {
-	user, err := s.usersRepository.Get(ctx, req.GetId())
+	user, err := s.usersService.Get(ctx, req.GetId())
 	if err != nil {
 		return nil, err
 	}
 
 	return &desc.GetRes{
-		User: &desc.User{
-			Id:        user.Id,
-			Name:      user.Name,
-			Email:     user.Email,
-			Role:      user.Role,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		User: defConverter.UserToProto(user),
 	}, nil
 }
 
@@ -110,10 +105,11 @@ func main() {
 	defer pool.Close()
 
 	usersRepository := usersRepo.NewRepository(pool)
+	userService := userService.NewService(usersRepository)
 
 	s := grpc.NewServer()
 	reflection.Register(s)
-	desc.RegisterUserV1Server(s, &server{usersRepository: usersRepository})
+	desc.RegisterUserV1Server(s, &server{usersService: userService})
 
 	log.Printf("server listening at %v", lis.Addr())
 

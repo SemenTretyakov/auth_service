@@ -7,10 +7,10 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v4/pgxpool"
 
+	"github.com/SemenTretyakov/auth_service/internal/model"
 	"github.com/SemenTretyakov/auth_service/internal/repository"
 	"github.com/SemenTretyakov/auth_service/internal/repository/users/converter"
-	"github.com/SemenTretyakov/auth_service/internal/repository/users/model"
-	desc "github.com/SemenTretyakov/auth_service/pkg/user_v1"
+	modelRepo "github.com/SemenTretyakov/auth_service/internal/repository/users/model"
 )
 
 const (
@@ -34,7 +34,7 @@ func NewRepository(pool *pgxpool.Pool) repository.UsersRepository {
 	return &repo{db: pool}
 }
 
-func (r *repo) Create(ctx context.Context, info *desc.UserFields) (int64, error) {
+func (r *repo) Create(ctx context.Context, info *model.UserFields) (int64, error) {
 	builder := sq.Insert(tableName).
 		PlaceholderFormat(sq.Dollar).
 		Columns(fullnameColumn, emailColumn, passwordColumn, passwordConfirmColumn, roleColumn).
@@ -64,7 +64,7 @@ func (r *repo) Create(ctx context.Context, info *desc.UserFields) (int64, error)
 	return userID, nil
 }
 
-func (r *repo) Get(ctx context.Context, id int64) (*desc.User, error) {
+func (r *repo) Get(ctx context.Context, id int64) (*model.User, error) {
 	buildSelectOne := sq.
 		Select(
 			idColumn,
@@ -81,10 +81,10 @@ func (r *repo) Get(ctx context.Context, id int64) (*desc.User, error) {
 
 	query, args, err := buildSelectOne.ToSql()
 	if err != nil {
-		log.Fatalf("failed to build query: %v", err)
+		log.Printf("failed to build query: %v", err)
 	}
 
-	var user model.User
+	var user modelRepo.User
 
 	err = r.db.QueryRow(ctx, query, args...).Scan(
 		&user.ID,
@@ -98,5 +98,5 @@ func (r *repo) Get(ctx context.Context, id int64) (*desc.User, error) {
 		log.Printf("failed to select users: %v", err)
 	}
 
-	return converter.RepoUserToDesc(&user), nil
+	return converter.RepoUserToDomain(&user), nil
 }
